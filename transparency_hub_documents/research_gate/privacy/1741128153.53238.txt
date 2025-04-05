@@ -1,0 +1,15 @@
+ResearchGate - Temporarily Unavailable
+Access denied
+You do not have access to www.researchgate.net.
+The site owner may have set restrictions that prevent you from accessing the site.
+Ray ID: 91b4e3290fa2ae70
+Timestamp: 2025-03-04 22:42:32 UTC
+Your IP address: 2607:fb60:1f14:12::101a
+Requested URL: www.researchgate.net/privacy-policy?_tp=eyJjb250ZXh0Ijp7ImZpcnN0UGFnZSI6ImluZGV4IiwicGFnZSI6ImluZGV4IiwicG9zaXRpb24iOiJnbG9iYWxGb290ZXIifX0
+Error reference number: 1020
+Server ID: FL_1005F53
+User-Agent: python-requests/2.32.3
+Ray ID: 91b4e3290fa2ae70
+Client IP: 2607:fb60:1f14:12::101a
+©
+ResearchGate GmbH. All rights reserved.
