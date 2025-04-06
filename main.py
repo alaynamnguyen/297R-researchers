@@ -3,10 +3,10 @@ import os
 import glob
 
 # Set up page
-st.set_page_config(page_title="Privacy Policy Explorer", layout="centered")
+st.set_page_config(page_title="Privacy Policy Explorer", layout="wide")
 
-st.title("Researchers Privacy Policy Explorer")
-st.write("Select a company to view its most recent privacy policy (.txt) file.")
+st.title("🕵️ Researchers Privacy Policy Explorer")
+st.write("Select a company to view its most recent privacy policy (.txt) file and ask questions about it.")
 
 POLICY_ROOT_DIR = "transparency_hub_documents"
 
@@ -62,8 +62,23 @@ if selected_company:
 
     if latest_file:
         filename = os.path.basename(latest_file)
-        st.markdown(f"**Most recent .txt file:** `{filename}`")
         content = read_file_contents(latest_file)
-        st.text_area("📄 Policy Text", content, height=400)
+
+        col1, col2 = st.columns([1.5, 1])
+
+        with col1:
+            st.markdown(f"**Most recent .txt file:** `{filename}`")
+            st.text_area("📄 Policy Text", content, height=600, key="policy_display")
+
+        with col2:
+            st.subheader("💬 Ask a Question")
+            user_question = st.text_input("Type your question here:")
+
+            if st.button("Ask") and user_question:
+                st.info("This is where the answer will go once the backend is connected.")
+                st.write(f"**You asked:** {user_question}")
+                # Placeholder for future backend integration
+                st.success("Answer: [placeholder response with citations]")
+                st.caption("Sources: Line 42, Line 198")
     else:
         st.warning(f"No .txt privacy files found for {selected_company}.")
