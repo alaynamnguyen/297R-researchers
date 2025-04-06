@@ -1,55 +1,30 @@
 import streamlit as st
 import os
 import glob
+from datetime import datetime
+from streamlit.components.v1 import html
+
+from utils import (
+    get_available_companies,
+    get_latest_txt_file,
+    read_file_contents
+)
+from backend import (
+    create_or_load_vectorstore,
+    get_retrieval_chain,
+    answer_question,
+    summarize_policy
+)
+
+# Initialize chat history
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
 # Set up page
 st.set_page_config(page_title="Privacy Policy Explorer", layout="wide")
 
 st.title("🕵️ Researchers Privacy Policy Explorer")
 st.write("Select a company to view its most recent privacy policy (.txt) file and ask questions about it.")
-
-POLICY_ROOT_DIR = "transparency_hub_documents"
-
-# --------------------------------------------------------------------
-# Get list of companies
-# --------------------------------------------------------------------
-def get_available_companies():
-    return sorted([
-        name for name in os.listdir(POLICY_ROOT_DIR)
-        if os.path.isdir(os.path.join(POLICY_ROOT_DIR, name, "privacy"))
-    ])
-
-# --------------------------------------------------------------------
-# Get most recent .txt file in privacy/ folder for a company
-# --------------------------------------------------------------------
-def get_latest_txt_file(company):
-    privacy_dir = os.path.join(POLICY_ROOT_DIR, company, "privacy")
-    txt_files = glob.glob(os.path.join(privacy_dir, "*.txt"))
-    if not txt_files:
-        return None
-    return sorted(txt_files, key=os.path.getmtime, reverse=True)[0]
-
-# --------------------------------------------------------------------
-# Read a file and clean up excessive blank lines
-# --------------------------------------------------------------------
-def read_file_contents(filepath):
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        # Remove lines that are entirely blank (more than one newline)
-        cleaned = []
-        last_line_blank = False
-        for line in lines:
-            if line.strip() == "":
-                if not last_line_blank:
-                    cleaned.append("\n")
-                    last_line_blank = True
-            else:
-                cleaned.append(line)
-                last_line_blank = False
-        return "".join(cleaned)
-    except Exception as e:
-        return f"Error reading file: {e}"
 
 # --------------------------------------------------------------------
 # Main App
@@ -74,11 +49,59 @@ if selected_company:
             st.subheader("💬 Ask a Question")
             user_question = st.text_input("Type your question here:")
 
-            if st.button("Ask") and user_question:
-                st.info("This is where the answer will go once the backend is connected.")
-                st.write(f"**You asked:** {user_question}")
-                # Placeholder for future backend integration
-                st.success("Answer: [placeholder response with citations]")
-                st.caption("Sources: Line 42, Line 198")
+            button_col1, button_col2 = st.columns([1, 1])
+            with button_col1:
+                ask_clicked = st.button("Ask", use_container_width=True)
+            with button_col2:
+                summarize_clicked = st.button("Summarize", use_container_width=True)
+
+            if ask_clicked and user_question:
+                try:
+                    with st.spinner("Thinking..."):
+                        vectorstore = create_or_load_vectorstore(content, filename)
+                        qa_chain = get_retrieval_chain(vectorstore)
+                        result = answer_question(user_question, qa_chain)
+
+                    st.session_state.chat_history.append({
+                        "type": "qa",
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "question": user_question,
+                        "answer": result["answer"],
+                        "sources": result["sources"]
+                    })
+
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+
+            if summarize_clicked:
+                try:
+                    with st.spinner("Summarizing policy..."):
+                        summary = summarize_policy(content)
+                    st.session_state.chat_history.append({
+                        "type": "summary",
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "question": "Summarize this policy",
+                        "answer": summary,
+                        "sources": []
+                    })
+                except Exception as e:
+                    st.error(f"❌ Error while summarizing: {str(e)}")
+
+            # Scrollable chat history (newest first)
+            with st.expander("📜 Chat History", expanded=True):
+                for i, entry in reversed(list(enumerate(st.session_state.chat_history))):
+                    st.markdown(f"**🕒 {entry['timestamp']}**")
+                    st.markdown(f"**You asked:** {entry['question']}")
+                    st.success(f"{entry['answer']}")
+                    
+                    # Highlight sources in the policy if any
+                    if entry["sources"]:
+                        st.caption("📌 Cited Chunks:")
+                        for chunk in entry["sources"]:
+                            highlighted = content.replace(chunk, f'<mark>{chunk}</mark>')
+                            st.markdown(f"<div style='border: 1px solid #ddd; padding: 8px; background: #fefbd8;'>{highlighted}</div>", unsafe_allow_html=True)
+                    
+                    st.divider()
+
     else:
         st.warning(f"No .txt privacy files found for {selected_company}.")
