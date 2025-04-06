@@ -1,56 +1,69 @@
 import streamlit as st
-from backend import (
-    create_or_load_vectorstore,
-    get_retrieval_chain,
-    answer_question,
-    verify_answer_with_sources,
-    summarize_policy_file,
-    map_policy_to_regulations
-)
+import os
+import glob
 
-def main():
-    st.title("Privacy Policy Chatbot Demo")
-    st.write("A simple LLM-based assistant for privacy policy researchers.")
+# Set up page
+st.set_page_config(page_title="Privacy Policy Explorer", layout="centered")
 
-    # Build/load vectorstore
-    st.sidebar.title("Settings")
-    policies_dir = st.sidebar.text_input("Policies Directory", value="privacy_policies")
-    if st.sidebar.button("Initialize Vector Store"):
-        st.session_state.vectorstore = create_or_load_vectorstore(policies_dir)
-        st.success("Vector store initialized or reloaded!")
-    
-    # If vector store is not in session, create it by default
-    if "vectorstore" not in st.session_state:
-        st.session_state.vectorstore = create_or_load_vectorstore(policies_dir)
+st.title("Researchers Privacy Policy Explorer")
+st.write("Select a company to view its most recent privacy policy (.txt) file.")
 
-    # Chat Interface
-    query = st.text_input("Ask a question about the policies:", value="")
-    if st.button("Ask"):
-        qa_chain = get_retrieval_chain(st.session_state.vectorstore)
-        result = answer_question(query, qa_chain)
-        st.write("**Answer:**", result["answer"])
-        st.write("**Sources:**", result["sources"])
+POLICY_ROOT_DIR = "transparency_hub_documents"
 
-        # Example verification step
-        # For demonstration, we won't do anything with the result's source docs
-        # except display the placeholder verification:
-        is_verified = verify_answer_with_sources(result["answer"], [])
-        st.write(f"**Verification**: {is_verified}")
+# --------------------------------------------------------------------
+# Get list of companies
+# --------------------------------------------------------------------
+def get_available_companies():
+    return sorted([
+        name for name in os.listdir(POLICY_ROOT_DIR)
+        if os.path.isdir(os.path.join(POLICY_ROOT_DIR, name, "privacy"))
+    ])
 
-        # Simple regulation mapping demonstration
-        regs = map_policy_to_regulations(result["answer"])
-        if regs:
-            st.write("**Potentially relevant regulations**:", regs)
-        else:
-            st.write("No specific regulation matches found.")
-    
-    # Summarize a specific policy
-    st.subheader("Summarize a Policy")
-    policy_file = st.text_input("Policy filename to summarize (in directory)", value="policy1.txt")
-    if st.button("Summarize Policy"):
-        summary = summarize_policy_file(f"{policies_dir}/{policy_file}")
-        st.write("**Summary:**")
-        st.write(summary)
+# --------------------------------------------------------------------
+# Get most recent .txt file in privacy/ folder for a company
+# --------------------------------------------------------------------
+def get_latest_txt_file(company):
+    privacy_dir = os.path.join(POLICY_ROOT_DIR, company, "privacy")
+    txt_files = glob.glob(os.path.join(privacy_dir, "*.txt"))
+    if not txt_files:
+        return None
+    return sorted(txt_files, key=os.path.getmtime, reverse=True)[0]
 
-if __name__ == "__main__":
-    main()
+# --------------------------------------------------------------------
+# Read a file and clean up excessive blank lines
+# --------------------------------------------------------------------
+def read_file_contents(filepath):
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        # Remove lines that are entirely blank (more than one newline)
+        cleaned = []
+        last_line_blank = False
+        for line in lines:
+            if line.strip() == "":
+                if not last_line_blank:
+                    cleaned.append("\n")
+                    last_line_blank = True
+            else:
+                cleaned.append(line)
+                last_line_blank = False
+        return "".join(cleaned)
+    except Exception as e:
+        return f"Error reading file: {e}"
+
+# --------------------------------------------------------------------
+# Main App
+# --------------------------------------------------------------------
+companies = get_available_companies()
+selected_company = st.selectbox("Choose a company:", companies)
+
+if selected_company:
+    latest_file = get_latest_txt_file(selected_company)
+
+    if latest_file:
+        filename = os.path.basename(latest_file)
+        st.markdown(f"**Most recent .txt file:** `{filename}`")
+        content = read_file_contents(latest_file)
+        st.text_area("📄 Policy Text", content, height=400)
+    else:
+        st.warning(f"No .txt privacy files found for {selected_company}.")
