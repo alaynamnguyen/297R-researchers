@@ -3,7 +3,8 @@ from typing import List, Dict, Any
 from dotenv import load_dotenv
 
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_chroma import Chroma
+# from langchain_chroma import Chroma
+from langchain.vectorstores import Chroma
 from langchain.chains import RetrievalQA
 from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
