@@ -8,6 +8,8 @@ from langchain.vectorstores import Chroma
 from langchain.chains import RetrievalQA
 from langchain_core.documents import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.prompts import PromptTemplate
+from langchain.chains import RetrievalQA
 
 # Load environment variables from .env
 load_dotenv()
@@ -57,10 +59,25 @@ def create_or_load_vectorstore(text: str, source_id: str, persist_dir="vectorsto
 # --------------------------------------------------------------------
 def get_retrieval_chain(vectorstore: Chroma, temperature=0.2) -> RetrievalQA:
     llm = ChatOpenAI(temperature=temperature)
+
+    prompt_template = PromptTemplate.from_template(
+        """You are a privacy policy assistant.
+Use the following context to answer the user's question. Cite the most relevant chunks exactly as given.
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer with specific references from the context."""
+    )
+
     return RetrievalQA.from_chain_type(
         llm=llm,
         retriever=vectorstore.as_retriever(),
-        return_source_documents=True
+        return_source_documents=True,
+        chain_type_kwargs={"prompt": prompt_template}
     )
 
 def answer_question(query: str, qa_chain: RetrievalQA) -> Dict[str, Any]:
